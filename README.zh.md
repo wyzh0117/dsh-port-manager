@@ -1,16 +1,29 @@
+<div align="center">
+
 # dsh-port-manager
 
-> dsh 原生侧边栏应用：**本机现在开着哪些端口、是谁占的、一句话把它处理掉。**
+**dsh 原生侧边栏应用** —— 本机现在开着哪些端口、是谁占的、一句话把它处理掉。
 
-[English](README.md) · **中文**
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D20-3c873a.svg)](https://nodejs.org)
+[![dsh](https://img.shields.io/badge/dsh-%5E0.1.5--rc.1-6b4fbb.svg)](#兼容性)
+[![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#平台)
+[![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./package.json)
+[![tests](https://img.shields.io/badge/tests-node%3Atest-6da55f.svg)](./test)
+
+`dsh` · `deepseek-harness` · `plugin` · `sidebar` · `port` · `lsof` · `port-manager`
+
+</div>
+
+> **GitHub topics（仓库设置里加）：** `dsh` `deepseek-harness` `plugin` `sidebar` `port` `lsof` `port-manager`
+>
+> English docs: [README.md](./README.md)。
+
+---
 
 一个纯本地、零运行时依赖的 dsh web 插件。它把自己注册成**右侧栏的原生 page 类型 tab**
 （走 `ctx.sidebarRightTabs` + 带 key 的 `sidebar.right.pane.tab` 插槽，和官方「文件」页同一套机制），
 数据由插件自己的宿主半用 `lsof` / `ps` 采集后经围栏 JSON 接口送到面板。
-
-**关键词：** `dsh` · `deepseek-harness` · `plugin` · `sidebar` · `port` · `lsof` · `port-manager`
-
-**基本信息：** MIT · DSH `^0.1.5-rc.1` · Node `>= 20` · macOS · Linux · 无 `dependencies`
 
 ```
 打开右侧栏  →  点 guide 里的 “Port Manager” 胶囊  →  端口列表

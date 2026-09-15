@@ -1,17 +1,30 @@
+<div align="center">
+
 # dsh-port-manager
 
-> A native DSH sidebar app: **which ports this machine is listening on, which app owns each one, and one click to deal with it.**
+**A native DSH sidebar app** — which ports this machine is listening on, which app owns each one, and one click to deal with it.
 
-**English** · [中文](README.zh.md)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D20-3c873a.svg)](https://nodejs.org)
+[![dsh](https://img.shields.io/badge/dsh-%5E0.1.5--rc.1-6b4fbb.svg)](#compatibility)
+[![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#platforms)
+[![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](./package.json)
+[![tests](https://img.shields.io/badge/tests-node%3Atest-6da55f.svg)](./test)
+
+`dsh` · `deepseek-harness` · `plugin` · `sidebar` · `port` · `lsof` · `port-manager`
+
+</div>
+
+> **Suggested GitHub topics:** `dsh` `deepseek-harness` `plugin` `sidebar` `port` `lsof` `port-manager`
+>
+> 中文文档见 [README.zh.md](./README.zh.md)。
+
+---
 
 A local-only, zero-runtime-dependency plugin for the DSH web client. It registers itself as a
 **native right-sidebar page tab** (through `ctx.sidebarRightTabs` + the keyed
 `sidebar.right.pane.tab` slot — the same mechanism the shipped Files page uses), and the data it
 renders is collected by its own host half with `lsof` / `ps` and delivered over a fenced JSON API.
-
-**Keywords:** `dsh` · `deepseek-harness` · `plugin` · `sidebar` · `port` · `lsof` · `port-manager`
-
-**At a glance:** MIT · DSH `^0.1.5-rc.1` · Node `>= 20` · macOS · Linux · no `dependencies`
 
 ```
 Open the right sidebar  →  click the “Port Manager” capsule in the guide  →  the port list
