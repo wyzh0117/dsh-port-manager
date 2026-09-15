@@ -1,0 +1,16 @@
+{
+  "id": "dsh-port-manager",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "Native DSH sidebar app: every listening port on this machine, the app behind it, and one-click port actions.",
+  "engines": {
+    "dsh": "^0.1.5-rc.1"
+  },
+  "contributes": {
+    "tools": [],
+    "skills": []
+  },
+  "client": {
+    "main": "./lib/client.js"
+  }
+}

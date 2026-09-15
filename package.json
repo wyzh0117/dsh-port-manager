@@ -1,0 +1,61 @@
+{
+  "name": "dsh-port-manager",
+  "version": "0.1.0",
+  "description": "DSH 原生侧边栏应用：列出本机所有监听端口、占用它的应用，并对每个端口执行打开 / 复制 / 定位 / 结束等常用操作。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./scan": "./lib/scan.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md",
+    "README_EN.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check lib/index.js && node --check lib/scan.js && node --check lib/client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "react": "^18.2.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "sidebar",
+    "port",
+    "lsof",
+    "port-manager"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wyzh0117/dsh-port-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wyzh0117/dsh-port-manager/issues"
+  },
+  "homepage": "https://github.com/wyzh0117/dsh-port-manager#readme"
+}

@@ -1,0 +1,8 @@
+# dsh-port-manager bundle patch
+#
+# Mounts the host half (an empty plugin) as a profile loader row. The client
+# module system discovers this row, reads package.json's `dsh.client`, and
+# serves `lib/client.js` as a browser bundle — no other wiring exists.
+- insert:
+    - id: port-manager
+      name: 'dsh-port-manager'
