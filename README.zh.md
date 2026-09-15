@@ -35,7 +35,7 @@
 | 绑定范围 | **仅本机**（回环）/ **局域网**（指定网卡）/ **所有网卡**（对外暴露，橙色警示） |
 | 应用 | 友好名：`.app` 包名、`node · vite`、`python · http.server`、Docker 容器名…… 并标注类别（Node / Python / Docker / 应用 / 服务 / 进程） |
 | 进程 | PID、所属用户、已运行时长、CPU、内存 |
-| 工作目录 | 进程 cwd（一行路径，可点开访达） |
+| 工作目录 | 进程 cwd（一行路径，用「定位」按钮打开） |
 | 常见用途 | `:5173 Vite dev`、`:5432 PostgreSQL`、`:7000 macOS AirPlay 接收器` 这类提示 |
 | 容器 | 命中 `docker ps` 端口映射时显示容器名与镜像 |
 
@@ -53,7 +53,7 @@
 | **定位** | 在访达（Linux 为文件管理器）里打开该进程的工作目录 |
 | **结束** | 二次确认后就地结束：先 `SIGTERM`，1.7 秒没退出自动升级 `SIGKILL`；也可直接「强制 -9」 |
 
-右上角 `⋯` 还能一键**复制端口清单（Markdown 表格）**或**端口 + 进程列表**，方便直接贴进对话里让模型排查。
+右上角 `⋯` 可**立即刷新**，也能一键**复制端口清单（Markdown 表格）**或**端口 + 进程列表**，方便直接贴进对话里让模型排查。
 
 ---
 
@@ -71,8 +71,10 @@ dsh plugin --profile web add "link:$PWD"
 验证：
 
 ```bash
-node -e 'const p=require(process.env.HOME+"/.dsh/profiles/web/package.json");console.log(p.dependencies["dsh-port-manager"], p.dsh.profile.bundles)'
+node -e 'const h=process.env.DSH_HOME??process.env.HOME+"/.dsh";const p=require(h+"/profiles/web/package.json");console.log(p.dependencies["dsh-port-manager"], p.dsh.profile.bundles)'
 ```
+
+（`dsh --profile` 的说明里 profile 目录就是 `$DSH_HOME/profiles`，未设置时默认 `~/.dsh/profiles`。）
 
 卸载：
 
@@ -157,7 +159,7 @@ scripts/        integration-scenario.mjs：集成场景脚本（真 cordis + 真
    `/api` 网关**，没有自带的 Host/Origin 校验与鉴权 Cookie。所以宿主半复刻了与网关一致的
    loopback / trustedHosts / 同源 / `sec-fetch-site` 检查，非可信来源一律 403。
 2. **结束前再校验**：列表可能是几秒前扫出来的，PID 可能已被系统复用。`kill` 会重新用
-   `lsof -iTCP:<port> -sTCP:LISTEN` 确认该 PID 此刻仍在监听这个端口，并用 `ps` 核对 uid。
+   `lsof -nP -iTCP:<port> -sTCP:LISTEN -Fpc` 确认该 PID 此刻仍在监听这个端口，并用 `ps` 核对 uid。
 3. **保护策略在服务端强制**（不是只把按钮置灰）：非当前用户、系统账号
    （root / `_windowserver` / …）、系统目录里的可执行文件（`/System`、`/usr/libexec`…）、
    macOS 的 ControlCenter（AirPlay 占着 5000/7000）、**DSH 宿主所在进程链**
@@ -185,7 +187,7 @@ node --check lib/index.js && node --check lib/scan.js && node --check lib/client
 `react-dom/server` 把面板真渲染成 HTML（React 从本机 profile 或兄弟插件的 `node_modules`
 里按路径解析；找不到就跳过渲染断言），因此端口卡片是真的渲染成 HTML 后被断言的。
 
-改 UI 只动 `lib/client.js`，保存后由 `dsh-client-hmr` 推到已打开的页面；改宿主半
+改 UI 只动 `lib/client.js`，保存后由 `@deepseek-ai/dsh-client-hmr` 推到已打开的页面；改宿主半
 （路由/扫描）需要重启 `dsh web`，或把 insert 行临时写进 profile 的 `cordis.patch.yml`
 （该文件是 live 重载的）。
 
@@ -193,7 +195,7 @@ node --check lib/index.js && node --check lib/scan.js && node --check lib/client
 
 ## 已知限制
 
-- **UDP 没有 LISTEN 状态**：默认只看 TCP，UDP 需要手动打开开关（`lsof -iUDP`）。
+- **UDP 没有 LISTEN 状态**：默认只看 TCP，UDP 需要手动打开开关（`lsof -nP -iUDP`）。
 - **别人的进程只能看不能杀**：非当前用户的监听会列出但按钮禁用（`kill` 也会 403）。
 - **工作目录读不到就没有「定位」**：同用户进程一般可读，系统进程不可读。
 - **端口清单是快照**：没有 fs 事件，需要自动刷新或手动刷新；扫描一次约 0.6s（含 docker 查询）。
@@ -237,7 +239,7 @@ dsh 插件社区里那些参考实现，它们让原生 tab 的接线方式变�
 
 ## 许可
 
-[MIT](LICENSE) © wyzh0117
+[MIT](LICENSE) © 2026 dsh-port-manager contributors
 
 ---
 

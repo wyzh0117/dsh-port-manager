@@ -21,6 +21,10 @@ Open the right sidebar  →  click the “Port Manager” capsule in the guide  
 
 ## Features
 
+> **Language note.** The panel UI ships in **Simplified Chinese only** — there is no i18n layer yet.
+> This README uses English glosses for its labels, and gives the actual caption in parentheses the
+> first time a control is named.
+
 ### 1. Sidebar entry
 
 One guide capsule (`order 15`, plug glyph) in the right sidebar's guide page. Clicking it opens the
@@ -37,27 +41,28 @@ One card per listener:
 | Bind scope | **loopback only** / **LAN** (a named interface) / **all interfaces** (exposed — orange warning) |
 | App | Friendly name: `.app` bundle name, `node · vite`, `python · http.server`, Docker container… plus a category badge (Node / Python / Docker / App / Service / Process) |
 | Process | PID, owning user, uptime, CPU, memory |
-| Working directory | The process cwd, on one line, clickable to reveal in Finder |
-| Well-known port | Hints such as `:5173 Vite dev`, `:5432 PostgreSQL`, `:7000 macOS AirPlay Receiver` |
+| Working directory | The process cwd, on one line (open it from the **定位 / Reveal** button) |
+| Well-known port | Hints such as `:5173 Vite dev`, `:5432 PostgreSQL` |
 | Container | Container name and image when a `docker ps` port mapping matches |
 
-The toolbar carries: `visible/total ports · N apps · M exposed · last scan time`, a search box
-(port / app / command / directory / container name), filters (all / loopback / exposed / killable),
-toggles (UDP, system entries), sorting (port / app / CPU / memory) and auto-refresh (manual / 3s /
-10s / 30s, plus one refresh whenever the tab regains focus).
+The toolbar carries: the `visible/total ports · N apps · M exposed · last scan time` summary, a search
+box (port / app / command / directory / container name), filters (全部 all / 仅本机 loopback /
+对外暴露 exposed / 可结束 killable), toggles (UDP, system entries), sorting (port / app / CPU /
+memory) and auto-refresh (manual / 3s / 10s / 30s, plus one refresh whenever the tab regains focus).
 
 ### 3. Per-port actions
 
 | Action | Behaviour |
 | --- | --- |
-| **Open** | Opens `http://localhost:<port>` in the system browser (TLS ports go to https) |
-| **Copy** | Menu: `localhost:port` / `http://localhost:port` / `:port` / `lsof -i :port` / `kill <pid>` / working directory / launch command |
-| **Details** | Expands the process view: full command line (click to copy), cwd, parent chain, every listening binding, container — plus an **HTTP probe** reporting status code, `Server`, `X-Powered-By`, `Content-Type`, page title and latency |
-| **Reveal** | Opens the process working directory in Finder (the file manager on Linux) |
-| **Kill** | After a second confirmation: `SIGTERM` first, escalating to `SIGKILL` automatically if the process is still alive 1.7s later. A direct force `-9` is also available |
+| **打开 / Open** | Opens `http://localhost:<port>` in the system browser (TLS ports go to https) |
+| **复制 / Copy** | Menu: `localhost:port` / `http://localhost:port` / `:port` / `lsof -i :port` / `kill <pid>` / working directory / launch command |
+| **详情 / Details** | Expands the process view: full command line (click to copy), cwd, parent chain, every listening binding, container — plus an **HTTP probe** reporting status code, `Server`, `X-Powered-By`, `Content-Type`, page title and latency |
+| **定位 / Reveal** | Opens the process working directory in Finder (the file manager on Linux) |
+| **结束 / Kill** | After a second confirmation: `SIGTERM` first, escalating to `SIGKILL` automatically if the process is still alive 1.7s later. A direct force `-9` is also available |
 
-The `⋯` menu copies the whole port list as a Markdown table, or as `:port app (pid)` lines — handy
-for pasting straight into a conversation and asking a model to look at it.
+The `⋯` menu refreshes the list immediately (立即刷新) and copies the whole port list as a Markdown
+table, or as `:port app (pid)` lines — handy for pasting straight into a conversation and asking a
+model to look at it.
 
 ---
 
@@ -76,8 +81,11 @@ driver, with no restart.
 Verify the install:
 
 ```bash
-node -e 'const p=require(process.env.HOME+"/.dsh/profiles/web/package.json");console.log(p.dependencies["dsh-port-manager"], p.dsh.profile.bundles)'
+node -e 'const h=process.env.DSH_HOME??process.env.HOME+"/.dsh";const p=require(h+"/profiles/web/package.json");console.log(p.dependencies["dsh-port-manager"], p.dsh.profile.bundles)'
 ```
+
+(`dsh --profile` documents the profile directory as `$DSH_HOME/profiles`, which defaults to
+`~/.dsh/profiles`.)
 
 Uninstall:
 
@@ -133,7 +141,7 @@ breaking. Each row below is enforced by code, not by convention:
 
 ```
 lib/
-├── index.js     host half — zero-import object plugin (export apply/inject), fenced /port-manager/api route
+├── index.js     host half — zero-dependency object plugin (export apply/inject), fenced /port-manager/api route
 ├── scan.js      scanning — lsof / ps / ss / docker ps → structured port records (pure, unit-tested)
 └── client.js    browser half — a window.__ModuleLoader__ bundle registering the tab type + panel UI
 test/            node --test: parsers, route + fence, bundle registration, real rendering assertions
@@ -164,8 +172,8 @@ coalescing, so an auto-refresh interval never hammers `lsof`.
    The host half re-implements the same loopback / `trustedHosts` / same-origin / `sec-fetch-site`
    checks, and answers 403 to anything untrusted.
 2. **Re-verified before terminating.** The list may be seconds old and PIDs get reused. `kill` asks
-   `lsof -iTCP:<port> -sTCP:LISTEN` again to confirm that this PID is listening on this port right
-   now, and cross-checks the uid with `ps`.
+   `lsof -nP -iTCP:<port> -sTCP:LISTEN -Fpc` again to confirm that this PID is listening on this port
+   right now, and cross-checks the uid with `ps`.
 3. **The protection policy is enforced server-side** — a greyed-out button is not a security
    boundary. Refused (403 `refused`) are: other users' processes, system accounts
    (root / `_windowserver` / …), executables under system directories (`/System`, `/usr/libexec`, …),
@@ -197,14 +205,14 @@ profile or a sibling plugin's `node_modules`; the rendering assertions are skipp
 found). The port cards really are rendered to HTML and then asserted on.
 
 To change the UI, edit `lib/client.js` only — saving pushes the change into open pages through
-`dsh-client-hmr`. Changing the host half (routes / scanning) needs a `dsh web` restart, or
+`@deepseek-ai/dsh-client-hmr`. Changing the host half (routes / scanning) needs a `dsh web` restart, or
 temporarily adding the insert row to the profile's `cordis.patch.yml` (that file is live-reloaded).
 
 ---
 
 ## Known limitations
 
-- **UDP has no LISTEN state** — only TCP is scanned by default; UDP needs the toggle (`lsof -iUDP`).
+- **UDP has no LISTEN state** — only TCP is scanned by default; UDP needs the toggle (`lsof -nP -iUDP`).
 - **Other users' processes are visible but not killable** — they are listed, the buttons are
   disabled, and `kill` answers 403.
 - **No cwd means no “Reveal”** — readable for same-user processes, not for system ones.
@@ -254,7 +262,7 @@ that made the native-tab wiring legible.
 
 ## License
 
-[MIT](LICENSE) © wyzh0117
+[MIT](LICENSE) © 2026 dsh-port-manager contributors
 
 ---
 
