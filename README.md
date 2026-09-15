@@ -1,160 +1,263 @@
 # dsh-port-manager
 
-> dsh 原生侧边栏应用：**本机现在开着哪些端口、是谁占的、一句话把它处理掉。**
+> A native DSH sidebar app: **which ports this machine is listening on, which app owns each one, and one click to deal with it.**
 
-一个纯本地、零运行时依赖的 dsh web 插件。它把自己注册成**右侧栏的原生 page 类型 tab**
-（走 `ctx.sidebarRightTabs` + `sidebar.right.pane.tab` 插槽，和官方「文件」页同一套机制），
-数据由插件自己的宿主半用 `lsof` / `ps` 采集后经围栏 JSON 接口送到面板。
+**English** · [中文](README.zh.md)
+
+A local-only, zero-runtime-dependency plugin for the DSH web client. It registers itself as a
+**native right-sidebar page tab** (through `ctx.sidebarRightTabs` + the keyed
+`sidebar.right.pane.tab` slot — the same mechanism the shipped Files page uses), and the data it
+renders is collected by its own host half with `lsof` / `ps` and delivered over a fenced JSON API.
+
+**Keywords:** `dsh` · `deepseek-harness` · `plugin` · `sidebar` · `port` · `lsof` · `port-manager`
+
+**At a glance:** MIT · DSH `^0.1.5-rc.1` · Node `>= 20` · macOS · Linux · no `dependencies`
 
 ```
-打开右侧栏  →  点 guide 里的 “Port Manager” 胶囊  →  端口列表
+Open the right sidebar  →  click the “Port Manager” capsule in the guide  →  the port list
 ```
 
 ---
 
-## 功能
+## Features
 
-**1. 侧边栏入口**
-在右侧栏的 guide 页贡献一枚 「Port Manager」 胶囊（order 30，图标为插头），点开即在
-当前分栏打开应用；tab 胶囊自带图标，可拖拽 / 分栏 / 浮动 / 全屏，全部由 dsh 原生机制负责。
+### 1. Sidebar entry
 
-**2. 端口全貌 + 占用它的应用**
-每个监听一条卡片，展示：
+One guide capsule (`order 15`, plug glyph) in the right sidebar's guide page. Clicking it opens the
+app in the active pane; the tab chip carries its own icon, and splitting, floating and fullscreen are
+handled by the native docking kit.
 
-| 字段 | 说明 |
+### 2. Every listening port, and the app behind it
+
+One card per listener:
+
+| Field | What it shows |
 | --- | --- |
-| 端口 / 协议 | `:3080`、TCP（可选 UDP） |
-| 绑定范围 | **仅本机**（回环）/ **局域网**（指定网卡）/ **所有网卡**（对外暴露，橙色警示） |
-| 应用 | 友好名：`.app` 包名、`node · vite`、`python · http.server`、Docker 容器名…… 并标注类别（Node / Python / Docker / 应用 / 服务 / 进程） |
-| 进程 | PID、所属用户、已运行时长、CPU、内存 |
-| 工作目录 | 进程 cwd（一行路径，可点开访达） |
-| 常见用途 | `:5173 Vite dev`、`:5432 PostgreSQL`、`:7000 macOS AirPlay 接收器` 这类提示 |
-| 容器 | 命中 `docker ps` 端口映射时显示容器名与镜像 |
+| Port / protocol | `:3080`, TCP (UDP behind a toggle) |
+| Bind scope | **loopback only** / **LAN** (a named interface) / **all interfaces** (exposed — orange warning) |
+| App | Friendly name: `.app` bundle name, `node · vite`, `python · http.server`, Docker container… plus a category badge (Node / Python / Docker / App / Service / Process) |
+| Process | PID, owning user, uptime, CPU, memory |
+| Working directory | The process cwd, on one line, clickable to reveal in Finder |
+| Well-known port | Hints such as `:5173 Vite dev`, `:5432 PostgreSQL`, `:7000 macOS AirPlay Receiver` |
+| Container | Container name and image when a `docker ps` port mapping matches |
 
-顶部还有：`可见/总数 个端口 · N 个应用 · M 个对外 · 上次扫描时间`、搜索框（端口 / 应用 /
-命令 / 目录 / 容器名）、筛选（全部 / 仅本机 / 对外暴露 / 可结束）、开关（UDP、系统项）、
-排序（端口 / 应用 / CPU / 内存）、自动刷新（手动 / 3s / 10s / 30s，切回 tab 时也会自动刷新一次）。
+The toolbar carries: `visible/total ports · N apps · M exposed · last scan time`, a search box
+(port / app / command / directory / container name), filters (all / loopback / exposed / killable),
+toggles (UDP, system entries), sorting (port / app / CPU / memory) and auto-refresh (manual / 3s /
+10s / 30s, plus one refresh whenever the tab regains focus).
 
-**3. 每个端口下方的常用操作**
+### 3. Per-port actions
 
-| 操作 | 行为 |
+| Action | Behaviour |
 | --- | --- |
-| **打开** | 用系统默认浏览器打开 `http://localhost:<port>`（TLS 端口走 https） |
-| **复制** | 菜单：`localhost:port` / `http://localhost:port` / `:port` / `lsof -i :port` / `kill <pid>` / 工作目录 / 启动命令 |
-| **详情** | 展开进程详情：完整命令行（点击即复制）、cwd、父进程链、监听绑定明细、容器；内含 **HTTP 探测**（状态码、Server、X-Powered-By、Content-Type、页面标题、耗时） |
-| **定位** | 在访达（Linux 为文件管理器）里打开该进程的工作目录 |
-| **结束** | 二次确认后就地结束：先 `SIGTERM`，1.7 秒没退出自动升级 `SIGKILL`；也可直接「强制 -9」 |
+| **Open** | Opens `http://localhost:<port>` in the system browser (TLS ports go to https) |
+| **Copy** | Menu: `localhost:port` / `http://localhost:port` / `:port` / `lsof -i :port` / `kill <pid>` / working directory / launch command |
+| **Details** | Expands the process view: full command line (click to copy), cwd, parent chain, every listening binding, container — plus an **HTTP probe** reporting status code, `Server`, `X-Powered-By`, `Content-Type`, page title and latency |
+| **Reveal** | Opens the process working directory in Finder (the file manager on Linux) |
+| **Kill** | After a second confirmation: `SIGTERM` first, escalating to `SIGKILL` automatically if the process is still alive 1.7s later. A direct force `-9` is also available |
 
-右上角 `⋯` 还能一键**复制端口清单（Markdown 表格）**或**端口 + 进程列表**，方便直接贴进对话里让模型排查。
+The `⋯` menu copies the whole port list as a Markdown table, or as `:port app (pid)` lines — handy
+for pasting straight into a conversation and asking a model to look at it.
 
 ---
 
-## 安装
-
-插件目录已在本机，用 dsh 自己的插件命令装进 `web` profile：
+## Install
 
 ```bash
-cd /path/to/dsh-PortManager        # 本插件目录
+cd /path/to/dsh-PortManager        # this plugin directory
 dsh plugin --profile web add "link:$PWD"
 ```
 
-该命令是 pnpm 的转发器，装完会把 `dsh-port-manager` 追加进 profile 的
-`dsh.profile.bundles`（因为本包含 `dsh.bundle.patch`）。**新增 bundle 层需要重启 `dsh web`**；
-之后只改 `lib/client.js` 时会由客户端 HMR 触发重载，不必重启。
+The command is a thin pnpm forwarder. Because this package declares `dsh.bundle.patch`, the package
+name is appended to the profile's `dsh.profile.bundles`. **A new bundle layer needs a `dsh web`
+restart**; afterwards, edits to `lib/client.js` alone are pushed to an open page by the client HMR
+driver, with no restart.
 
-验证：
+Verify the install:
 
 ```bash
 node -e 'const p=require(process.env.HOME+"/.dsh/profiles/web/package.json");console.log(p.dependencies["dsh-port-manager"], p.dsh.profile.bundles)'
 ```
 
+Uninstall:
+
+```bash
+dsh plugin --profile web remove dsh-port-manager
+```
+
 ---
 
-## 架构
+## Compatibility
+
+### Platforms
+
+| Platform | Scanning | Open / Reveal | Notes |
+| --- | --- | --- | --- |
+| **macOS** | `lsof` (+ `ps`, optional `docker ps`) | `open` | The primary, fully exercised target. Docker enrichment is detected through `/var/run/docker.sock` and `~/.docker/run/docker.sock` |
+| **Linux** | `lsof`, falling back to `ss -ltnpH` / `ss -lunpH` when `lsof` is absent | `xdg-open` | Full feature parity, including Docker |
+| **Windows** | `lsof` is not present and `ss` is Linux-only, so scanning reports a warning and an empty list | `cmd /c start`, `explorer` | Not a supported target: the scanning half has no Windows backend. `open` additionally rejects paths containing characters `cmd` would interpret |
+
+### Requirements
+
+| Requirement | Version | Where it is declared |
+| --- | --- | --- |
+| DSH | `^0.1.5-rc.1` | `dsh.plugin.json` → `engines.dsh` |
+| Node.js | `>= 20` | `package.json` → `engines.node` |
+| `@deepseek-ai/cordis` | `^4.0.1` (peer) | `package.json` → `peerDependencies` |
+| React | `^18.2.0` (peer) | `package.json` → `peerDependencies` |
+| External commands | `lsof`, `ps` (system-provided); optional `ss`, `docker` | — |
+
+There are **no `dependencies`**: the host half imports only `node:fs` / `node:http` / `node:https` /
+`node:child_process` / `node:os` / `node:util` plus its sibling `./scan.js`, so the plugin directory
+needs no `node_modules` and works immediately after a `link:` install.
+
+### Version adaptivity
+
+The plugin is written so that a host or client it does not fully recognise degrades instead of
+breaking. Each row below is enforced by code, not by convention:
+
+| Surface | What the plugin does | What you get on a different version |
+| --- | --- | --- |
+| Host half activation | `export const inject = ["webServer"]` | On profiles with no web server (headless / CLI) the plugin simply stays dormant instead of failing to load |
+| Optional host service | `ctx.get("webRuntime")?.trustedHosts ?? []` | Trusted hosts are honoured when the service exists; without it the request fence falls back to loopback-only, which is the stricter default |
+| Client half activation | `export const inject = ["slots", "sidebarRightTabs"]` | A client build without the native sidebar-tab registry leaves the browser half inactive rather than throwing; the host half and its API keep working |
+| Slot contract | `ctx.slots.inject(name, () => ctx.slots.register(...))` via `ctx.effect` | Slot registration is reactive and disposable: if a slot appears later, or a version renames where it is contributed, the tab registers when the slot exists and is torn down when it goes away |
+| Design tokens | Every token is read as `var(--dsw-alias-*, <literal fallback>)` | A renamed or missing token degrades to a readable hard-coded colour instead of an unstyled panel, and light/dark themes follow the host automatically |
+| Module table | The bundle `require`s **only** `react` | Icons are inline SVG and styles ship through one `<style data-plugin-css>` tag. No bare imports means no `node_modules` resolution and no “missed the module table” bundle failure |
+| Package manager | A `.gitignore`d, dependency-free tree | `link:`, a tarball or npm all install the same bytes; nothing has to be built first |
+| Command availability | `which` on POSIX, `where` on Windows; `lsof` → `ss` fallback | A missing scanner produces a `warnings` entry on the panel, never a crash |
+
+---
+
+## Architecture
 
 ```
 lib/
-├── index.js    宿主半：零依赖对象插件（export apply/inject），注册 /port-manager/api 围栏路由
-├── scan.js     扫描与解析：lsof / ps / ss / docker ps → 结构化端口记录（纯函数可单测）
-└── client.js   浏览器半：window.__ModuleLoader__ bundle，注册原生 tab 类型 + 面板 UI
-test/           node --test：解析单测、路由单测、bundle 注册与真实渲染断言、真实 cordis 集成
-scripts/        integration-scenario.mjs：集成场景脚本（真 cordis + 真 webServer + 真 HTTP）
+├── index.js     host half — zero-import object plugin (export apply/inject), fenced /port-manager/api route
+├── scan.js      scanning — lsof / ps / ss / docker ps → structured port records (pure, unit-tested)
+└── client.js    browser half — a window.__ModuleLoader__ bundle registering the tab type + panel UI
+test/            node --test: parsers, route + fence, bundle registration, real rendering assertions
+scripts/         integration-scenario.mjs — real cordis Context + real dsh-host-webserver over real HTTP
 ```
 
-数据流：面板 `fetch("/port-manager/api/<method>")` → 宿主半 `execFile` 调系统命令 → 解析成
-端口记录 → JSON 信封返回。宿主半带 1.2s 扫描缓存与并发合并，自动刷新不会把 `lsof` 打满。
+The panel `fetch`es `/port-manager/api/<method>`; the host half uses `execFile`, parses the output
+into port records and wraps them in a JSON envelope. Scans are cached for 1.2s with in-flight
+coalescing, so an auto-refresh interval never hammers `lsof`.
 
-| 接口 | 用途 |
+| Endpoint | Purpose |
 | --- | --- |
-| `list` | 扫描端口（`includeUdp` / `force` / `docker` 可选） |
-| `detail` | 单进程详情（命令行、cwd、父进程链、它占用的端口） |
-| `kill` | 结束进程（先校验「它确实还在监听这个端口」） |
-| `open` | 系统浏览器打开 |
-| `reveal` | 文件管理器打开目录 |
-| `probe` | 本机 HTTP(S) 探测 |
-
-### 依赖说明
-
-- **宿主半零 import**：只用 `node:fs` / `node:http` / `node:https` / `node:child_process`
-  加同目录的 `./scan.js`。所以插件目录**不需要 `node_modules`**（`link:` 安装后即可加载），
-  也不会踩「裸 import 从插件目录解析不到」的坑。要加 `@deepseek-ai/*` 依赖前请先读这一条。
-- **浏览器半只 `require("react")`**：图标全部内联 SVG、样式自己注入 `<style data-plugin-css>`，
-  不 require 任何非种子包（那会以 `missed the module table` 炸掉整个 bundle）。
-- 外部命令只用系统自带的 `lsof` / `ps` / `open`（Linux 回退 `ss` / `xdg-open`），
-  可选 `docker ps`（仅在 `docker.sock` 存在时调用）。
+| `list` | Scan ports (`includeUdp` / `force` / `docker` optional) |
+| `detail` | One process in full (command line, cwd, parent chain, the ports it holds) |
+| `kill` | End a process (after re-verifying that it really still listens on that port) |
+| `open` | Open in the system browser |
+| `reveal` | Open a directory in the file manager |
+| `probe` | Local HTTP(S) probe |
 
 ---
 
-## 安全边界
+## Security boundary
 
-`kill` 是这个插件的特权面，因此：
+`kill` is this plugin's privileged surface, so:
 
-1. **浏览器围栏**：`/port-manager/api` 是插件自己注册的裸 `node:http` 路由，**不经过 dsh 的
-   `/api` 网关**，没有自带的 Host/Origin 校验与鉴权 Cookie。所以宿主半复刻了与网关一致的
-   loopback / trustedHosts / 同源 / `sec-fetch-site` 检查，非可信来源一律 403。
-2. **结束前再校验**：列表可能是几秒前扫出来的，PID 可能已被系统复用。`kill` 会重新用
-   `lsof -iTCP:<port> -sTCP:LISTEN` 确认该 PID 此刻仍在监听这个端口，并用 `ps` 核对 uid。
-3. **保护策略在服务端强制**（不是只把按钮置灰）：非当前用户、系统账号
-   （root / `_windowserver` / …）、系统目录里的可执行文件（`/System`、`/usr/libexec`…）、
-   macOS 的 ControlCenter（AirPlay 占着 5000/7000）、**DSH 宿主所在进程链**
-   （插件就住在宿主进程里，结束了当前界面也会一起没 —— 按 `process.pid` 的祖先链判定，
-   不信任请求头里的 Host）、以及请求来源指向的 DSH 端口，全部会被 `kill` 接口拒绝（403
-   `refused`），UI 上同时显示锁图标与原因。
-4. 受保护/不可结束的条目在 UI 上带锁图标，`refused` / `not-listening` 等错误会在面板内以
-   toast 原文回显，不会静默失败。
+1. **Browser fence.** `/port-manager/api` is a raw `node:http` route registered by the plugin — it
+   bypasses DSH's `/api` gateway and therefore does not inherit its Host/Origin check or auth cookie.
+   The host half re-implements the same loopback / `trustedHosts` / same-origin / `sec-fetch-site`
+   checks, and answers 403 to anything untrusted.
+2. **Re-verified before terminating.** The list may be seconds old and PIDs get reused. `kill` asks
+   `lsof -iTCP:<port> -sTCP:LISTEN` again to confirm that this PID is listening on this port right
+   now, and cross-checks the uid with `ps`.
+3. **The protection policy is enforced server-side** — a greyed-out button is not a security
+   boundary. Refused (403 `refused`) are: other users' processes, system accounts
+   (root / `_windowserver` / …), executables under system directories (`/System`, `/usr/libexec`, …),
+   macOS ControlCenter (AirPlay holds 5000/7000), the **DSH host's own process chain** — the plugin
+   lives inside the host process, so killing an ancestor would take the UI down with it; this is
+   decided from `process.pid`'s ancestry, never from the request's `Host` header — and the DSH port
+   the request itself came from.
+4. Protected and unkillable entries carry a lock icon in the UI, and errors such as `refused` /
+   `not-listening` are echoed verbatim as a toast in the panel. Nothing fails silently.
 
 ---
 
-## 开发
+## Development
 
 ```bash
-node --test        # 32 个用例：解析 / 路由 / 围栏 / bundle 注册 / 组件渲染 / 真实 cordis 集成
+node --test        # 32 cases: parsers / route / fence / bundle registration / component rendering / real cordis integration
 node --check lib/index.js && node --check lib/scan.js && node --check lib/client.js
 ```
 
-`test/host.test.mjs` 用假 ctx 抓路由 handler 打假 req/res；`test/integration.test.mjs`（配
-`scripts/integration-scenario.mjs`）更进一步：它在子进程里起**真的 cordis Context + 真的
-`dsh-host-webserver`**，把插件 `apply` 挂进真实服务树，再用真实 HTTP 请求验证围栏（异源 / 跨站
-403、同源放行）、方法分发与真实扫描结果。
+`test/host.test.mjs` drives the route handler with a fake `ctx` and fake `req`/`res`.
+`test/integration.test.mjs` (with `scripts/integration-scenario.mjs`) goes further: it boots a **real
+cordis Context and a real `dsh-host-webserver`** in a child process, mounts the plugin's `apply` into
+the live service tree, and verifies the fence (cross-origin 403, same-origin pass), method dispatch
+and real scan results over real HTTP.
 
-`test/client.test.mjs` 用假的 `window.__ModuleLoader__` + 假 ctx 装载 bundle，并用
-`react-dom/server` 把面板真渲染成 HTML（React 从本机 profile 或兄弟插件的 `node_modules`
-里按路径解析；找不到就跳过渲染断言），因此端口卡片是真的渲染成 HTML 后被断言的。
+`test/client.test.mjs` loads the bundle against a fake `window.__ModuleLoader__` and a fake `ctx`,
+then renders the panel to HTML with `react-dom/server` (React is resolved by path from the local
+profile or a sibling plugin's `node_modules`; the rendering assertions are skipped when it cannot be
+found). The port cards really are rendered to HTML and then asserted on.
 
-改 UI 只动 `lib/client.js`，保存后由 `dsh-client-hmr` 推到已打开的页面；改宿主半
-（路由/扫描）需要重启 `dsh web`，或把 insert 行临时写进 profile 的 `cordis.patch.yml`
-（该文件是 live 重载的）。
+To change the UI, edit `lib/client.js` only — saving pushes the change into open pages through
+`dsh-client-hmr`. Changing the host half (routes / scanning) needs a `dsh web` restart, or
+temporarily adding the insert row to the profile's `cordis.patch.yml` (that file is live-reloaded).
 
 ---
 
-## 已知限制
+## Known limitations
 
-- **UDP 没有 LISTEN 状态**：默认只看 TCP，UDP 需要手动打开开关（`lsof -iUDP`）。
-- **别人的进程只能看不能杀**：非当前用户的监听会列出但按钮禁用（`kill` 也会 403）。
-- **工作目录读不到就没有「定位」**：同用户进程一般可读，系统进程不可读。
-- **端口清单是快照**：没有 fs 事件，需要自动刷新或手动刷新；扫描一次约 0.6s（含 docker 查询）。
-- **面板很窄时**（<320px）操作按钮会折行，这是原生面板宽度决定的，把面板拖宽或全屏即可。
+- **UDP has no LISTEN state** — only TCP is scanned by default; UDP needs the toggle (`lsof -iUDP`).
+- **Other users' processes are visible but not killable** — they are listed, the buttons are
+  disabled, and `kill` answers 403.
+- **No cwd means no “Reveal”** — readable for same-user processes, not for system ones.
+- **The list is a snapshot** — there is no filesystem event feed, so it relies on auto-refresh or a
+  manual refresh. One scan costs roughly 0.6s including the Docker query.
+- **Narrow panels** (under ~320px) wrap the action buttons; that is the native panel width, so drag
+  the panel wider or go fullscreen.
 
-## 许可
+---
 
-MIT
+## Contributing
+
+Issues and pull requests are welcome at
+<https://github.com/wyzh0117/dsh-port-manager/issues>.
+
+Before opening a PR:
+
+```bash
+node --test && node --check lib/index.js && node --check lib/scan.js && node --check lib/client.js
+```
+
+Please keep the two constraints that make this plugin installable without a build step:
+
+- the host half (`lib/index.js`, `lib/scan.js`) imports nothing but `node:*` and `./scan.js`;
+- the browser half (`lib/client.js`) requires nothing from the module table except `react`.
+
+Adding a bare `import` of an `@deepseek-ai/*` package to either half breaks a `link:` install and the
+browser bundle respectively.
+
+## Changelog
+
+### 0.1.0
+
+- Native right-sidebar page tab: guide capsule, keyed `sidebar.right.pane.tab` body, and a tab title
+  with its own icon.
+- Port scanning through `lsof` (with an `ss` fallback) plus `ps` enrichment, Docker container
+  mapping, well-known-port hints, search / filters / sorting / auto-refresh.
+- Per-port Open / Copy / Details (with HTTP probe) / Reveal / Kill, with `SIGTERM` → `SIGKILL`
+  escalation and a server-side protection policy.
+- 32 tests, including a real-cordis integration scenario over real HTTP.
+
+## Acknowledgements
+
+Built against the DSH plugin API of `@deepseek-ai/dsh` `0.1.5-rc.*`, following the same conventions
+as the shipped sidebar pages. Thanks to the DSH plugin community for the reference implementations
+that made the native-tab wiring legible.
+
+## License
+
+[MIT](LICENSE) © wyzh0117
+
+---
+
+<sub>If this plugin saved you a <code>lsof</code> lookup, a star helps other people find it.</sub>
+
+[![Star History Chart](https://api.star-history.com/svg?repos=wyzh0117/dsh-port-manager&type=Date)](https://star-history.com/#wyzh0117/dsh-port-manager&Date)

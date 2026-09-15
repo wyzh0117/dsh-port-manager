@@ -1,7 +1,7 @@
 {
   "name": "dsh-port-manager",
   "version": "0.1.0",
-  "description": "DSH 原生侧边栏应用：列出本机所有监听端口、占用它的应用，并对每个端口执行打开 / 复制 / 定位 / 结束等常用操作。",
+  "description": "Native DSH sidebar app: every listening port on this machine, the app behind it, and one-click port actions.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -15,7 +15,7 @@
     "cordis.patch.yml",
     "dsh.plugin.json",
     "README.md",
-    "README_EN.md",
+    "README.zh.md",
     "LICENSE"
   ],
   "scripts": {
