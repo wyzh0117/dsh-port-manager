@@ -16,6 +16,7 @@ import {
   apply,
   inject,
   isTrustedRequest,
+  killRefusalReason,
   readJsonBody,
   writeError,
   writeJson,
@@ -118,6 +119,50 @@ test("readJsonBody：空体当 {}、坏 JSON 报 400、超大拒绝", async () =
     return true;
   });
   await assert.rejects(() => readJsonBody(fakeRequest({ body: `"${"x".repeat(1 << 21)}"` })), (error) => error.code === "bad-request");
+});
+
+test("killRefusalReason：保护策略在服务端也生效（不只看 UI 标记）", () => {
+  const base = { port: 4242, name: "node", command: "node server.js", user: "youngi", selfPort: 3080, selfChain: new Set([process.pid, 1 + process.pid]) };
+  // 自己 / 祖先链：一律拒绝（不看 Host，不看端口）。
+  assert.match(killRefusalReason({ ...base, pid: process.pid }), /DSH 自己/);
+  assert.match(killRefusalReason({ ...base, pid: process.pid + 1 }), /进程链/);
+  // macOS 系统服务（AirPlay 占着 5000/7000）。
+  assert.match(killRefusalReason({ ...base, pid: 646, port: 7000, name: "ControlCenter" }), /AirPlay/);
+  // 系统账号 / 系统目录里的程序。
+  assert.match(killRefusalReason({ ...base, pid: 812, port: 22, name: "sshd", user: "root" }), /系统账号/);
+  assert.match(killRefusalReason({ ...base, pid: 725, port: 49258, name: "rapportd", command: "/usr/libexec/rapportd -daemon" }), /系统自带程序/);
+  // DSH 自己的端口（来自 Host 的补充判定）。
+  assert.match(killRefusalReason({ ...base, pid: 1276, port: 3080 }), /DSH 自己/);
+  // 普通开发服务：放行。
+  assert.equal(killRefusalReason({ ...base, pid: 4242 }), null);
+});
+
+test("入参校验：非纯数字 / 越界 / 空 pid 一律 400", async () => {
+  const route = captureRoute();
+  const cases = [
+    { url: `${API_PATH}/kill`, body: { pid: "646abc", port: 3000 } },
+    { url: `${API_PATH}/kill`, body: { pid: -5, port: 3000 } },
+    { url: `${API_PATH}/kill`, body: { pid: 4242, port: 70000 } },
+    { url: `${API_PATH}/kill`, body: { pid: 4242, port: 0 } },
+    { url: `${API_PATH}/detail`, body: { pid: 0 } },
+    { url: `${API_PATH}/open`, body: { port: -1 } },
+    { url: `${API_PATH}/probe`, body: { port: "80abc" } },
+  ];
+  for (const item of cases) {
+    const res = fakeResponse();
+    await route.handler(fakeRequest(item), res);
+    assert.equal(res.status, 400, `${JSON.stringify(item.body)} 应该 400，实际 ${res.status}`);
+    assert.equal(res.json().error.code, "bad-request");
+  }
+});
+
+test("list：请求体是 JSON null 也不能 500", async () => {
+  const route = captureRoute();
+  const res = fakeResponse();
+  await route.handler(fakeRequest({ url: `${API_PATH}/list`, body: "null" }), res);
+  assert.equal(res.status, 200);
+  assert.equal(res.json().ok, true);
+  assert.ok(Array.isArray(res.json().value.ports));
 });
 
 test("插件导出：零依赖对象插件 + inject webServer", () => {

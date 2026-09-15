@@ -123,10 +123,17 @@ try {
   assert.equal((await call(port, `${API_PATH}/nope`, { body: {} })).status, 404);
   assert.equal((await call(port, `${API_PATH}/a/b`, { body: {} })).status, 404);
 
+  // 保护策略在服务端也生效：拿自己（= 当前监听这个端口的进程）当靶子。
+  // 万一判定失效，进程会被 SIGTERM 掉、子进程以非 0 退出 —— 测试会响亮地失败。
+  const selfKill = await call(port, `${API_PATH}/kill`, { body: { pid: process.pid, port } });
+  assert.equal(selfKill.status, 403, `结束自己必须被拒绝，实际 ${selfKill.status}`);
+  assert.equal(selfKill.json.error.code, "refused");
+
   // kill 的安全兜底：不存在的 pid 拒绝、参数缺失 400。
   const kill = await call(port, `${API_PATH}/kill`, { body: { pid: 999999, port: 1 } });
   assert.ok([403, 409].includes(kill.status), `kill 期望 403/409，实际 ${kill.status}`);
   assert.equal((await call(port, `${API_PATH}/kill`, { body: { pid: 999999 } })).status, 400);
+  assert.equal((await call(port, `${API_PATH}/kill`, { body: { pid: 999999, port: 70000 } })).status, 400);
 
   // detail / reveal / open 的入参校验。
   assert.equal((await call(port, `${API_PATH}/detail`, { body: { pid: 999999 } })).status, 404);

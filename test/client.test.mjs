@@ -123,7 +123,9 @@ const SAMPLE_ENTRY = {
 
 test("bundle：只 require react，导出 apply/inject", async () => {
   const { exportsObj, used, definition } = await loadBundle();
-  assert.deepEqual(used.length === 0 ? [] : [definition.id !== undefined], [true]);
+  assert.equal(definition.id, "dsh-port-manager");
+  // 真的门禁：假 require 只放行 react，其它说明符会抛错 —— 所以 used 必须恰好是 ["react"]。
+  assert.deepEqual(used, ["react"]);
   assert.equal(typeof exportsObj.apply, "function");
   assert.deepEqual(exportsObj.inject, ["slots", "sidebarRightTabs"]);
 });
@@ -141,7 +143,7 @@ test("注册：page 类型 + guide 入口 + tab 主体 + tab 标题", async () =
   assert.equal(type.patterns, undefined, "page 类型不能声明 patterns");
   assert.equal(type.title("sidebar://port-manager"), "Port Manager");
   assert.equal(type.guide.length, 1);
-  assert.equal(type.guide[0].order, 30);
+  assert.equal(type.guide[0].order, 15, "guide 顺序：紧跟内置“文件”(10) 之后，且在 better-sidebar 的条目(30+) 之前");
   assert.equal(type.guide[0].title(), "Port Manager");
   assert.equal(typeof type.guide[0].description(), "string");
   assert.equal(typeof type.guide[0].icon, "function");

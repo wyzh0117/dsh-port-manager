@@ -64,14 +64,17 @@ styles are injected through one `<style data-plugin-css>` tag).
 gateway, so it carries neither the gateway's Host/Origin check nor its auth cookie. The host half
 therefore re-implements the same loopback / `trustedHosts` / same-origin / `sec-fetch-site` fence and
 returns 403 otherwise. `kill` re-verifies with `lsof -iTCP:<port> -sTCP:LISTEN` that the PID still
-listens on that port (PIDs get reused), checks the uid with `ps`, and refuses system accounts,
-binaries under `/System` or `/usr/libexec`, macOS ControlCenter (AirPlay holds 5000/7000) and DSH's
-own port.
+listens on that port (PIDs get reused), checks the uid with `ps`, and then enforces the protection
+policy **server-side** (a greyed-out button is not a security boundary): system accounts, binaries
+under `/System` or `/usr/libexec`, macOS ControlCenter (AirPlay holds 5000/7000), and the DSH host's
+own process chain — the plugin lives inside the host process, so killing any of its ancestors would
+take the UI down with it. That last rule is decided from the process tree, never from the request's
+`Host` header.
 
 ## Development
 
 ```bash
-node --test    # 27 cases: parsers, route, fence, bundle registration, real component rendering,
+node --test    # 32 cases: parsers, route, fence, bundle registration, real component rendering,
                #            and a real-cordis integration scenario over real HTTP
 ```
 

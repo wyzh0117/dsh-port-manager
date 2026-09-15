@@ -6,9 +6,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 import {
   describeProcess,
+  displayNameOf,
+  dockerLikelyRunning,
   parseDockerPs,
   parseElapsed,
   parseEndpoint,
@@ -133,6 +137,21 @@ test("parseDockerPs：容器端口映射反查", () => {
   assert.equal(map.get(9999), undefined);
 });
 
+test("dockerLikelyRunning：按 socket 存在与否决定要不要调 docker", () => {
+  // 用一个真实存在的临时文件当「socket」，避免依赖本机 Docker 装没装。
+  const fake = `${tmpdir()}/pgm-docker-${process.pid}.sock`;
+  writeFileSync(fake, "");
+  try {
+    assert.equal(dockerLikelyRunning([fake]), true);
+    assert.equal(dockerLikelyRunning([`${fake}.nope`]), false);
+    assert.equal(dockerLikelyRunning([""]), false);
+    // 默认路径要么存在要么不存在，但绝不能抛（回归：existsSync 忘了 import 会 ReferenceError）。
+    assert.equal(typeof dockerLikelyRunning(), "boolean");
+  } finally {
+    rmSync(fake, { force: true });
+  }
+});
+
 test("parseSsOutput：Linux 回退解析", () => {
   const text = [
     "LISTEN 0 511 127.0.0.1:3080 0.0.0.0:* users:((\"node\",pid=1276,fd=19))",
@@ -174,9 +193,34 @@ test("describeProcess：应用包 / node 脚本 / python / docker", () => {
   assert.equal(python.kind, "python");
   assert.equal(python.title, "python3 · http.server");
 
+  // macOS 上应用路径带空格（`/Applications/Visual Studio Code.app/...`）也要认出来。
+  const spaced = describeProcess({
+    name: "Electron",
+    command: "/Applications/Visual Studio Code.app/Contents/MacOS/Electron",
+    args: splitCommand("/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
+  });
+  assert.equal(spaced.title, "Visual Studio Code");
+  assert.equal(spaced.kind, "app");
+
+  // 框架版 Python 的 `Python.app/.../Python -m uvicorn` 应当显示成 python · uvicorn，
+  // 而不是被当成一个叫 Python 的 GUI 应用。
+  const frameworkPython = describeProcess({
+    name: "Python",
+    command: "/Library/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn backend.main:app --port 8000",
+    args: splitCommand("/Library/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn backend.main:app --port 8000"),
+  });
+  assert.equal(frameworkPython.title, "python · uvicorn");
+  assert.equal(frameworkPython.kind, "python");
+
   const docker = describeProcess({ name: "docker-proxy", command: "docker-proxy -container-port 5432", args: [], container: { name: "pg-local", image: "timescale/timescaledb" } });
   assert.equal(docker.title, "pg-local");
   assert.equal(docker.kind, "docker");
+});
+
+test("displayNameOf：把命令行缩成短名（父进程链展示用）", () => {
+  assert.equal(displayNameOf("/Users/youngi/.h/.local/bin/python3.11 -m uvicorn app:api"), "python3.11");
+  assert.equal(displayNameOf("/bin/zsh -l"), "zsh");
+  assert.equal(displayNameOf(""), "(未知)");
 });
 
 test("scopeOf / wellKnownPort", () => {

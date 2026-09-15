@@ -20,4 +20,4 @@
 
 报告里标注为 UNVERIFIED 的条目（例如手动往 profile `cordis.patch.yml` 加 insert 行能否热挂载
 一个「已安装但未进 bundles」的包）在写代码时**没有**被依赖：本插件的实现只走已被实测的路径
-（bundle patch 里的 insert 行 + 重启），并且 `test/` 下的 27 个用例把这些结论都变成了可执行断言。
+（bundle patch 里的 insert 行 + 重启），并且 `test/` 下的 32 个用例把这些结论都变成了可执行断言。

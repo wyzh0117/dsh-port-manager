@@ -114,10 +114,12 @@ scripts/        integration-scenario.mjs：集成场景脚本（真 cordis + 真
    loopback / trustedHosts / 同源 / `sec-fetch-site` 检查，非可信来源一律 403。
 2. **结束前再校验**：列表可能是几秒前扫出来的，PID 可能已被系统复用。`kill` 会重新用
    `lsof -iTCP:<port> -sTCP:LISTEN` 确认该 PID 此刻仍在监听这个端口，并用 `ps` 核对 uid。
-3. **只杀自己的进程**：非当前用户、系统账号（root / `_windowserver` / …）、系统目录里的
-   可执行文件（`/System`、`/usr/libexec`、`/usr/sbin`…）、macOS 的 ControlCenter（AirPlay
-   占着 5000/7000）、以及 **DSH 自己监听的端口**（结束了当前界面也会没）都会被标成受保护，
-   结束按钮直接禁用并显示原因。
+3. **保护策略在服务端强制**（不是只把按钮置灰）：非当前用户、系统账号
+   （root / `_windowserver` / …）、系统目录里的可执行文件（`/System`、`/usr/libexec`…）、
+   macOS 的 ControlCenter（AirPlay 占着 5000/7000）、**DSH 宿主所在进程链**
+   （插件就住在宿主进程里，结束了当前界面也会一起没 —— 按 `process.pid` 的祖先链判定，
+   不信任请求头里的 Host）、以及请求来源指向的 DSH 端口，全部会被 `kill` 接口拒绝（403
+   `refused`），UI 上同时显示锁图标与原因。
 4. 受保护/不可结束的条目在 UI 上带锁图标，`refused` / `not-listening` 等错误会在面板内以
    toast 原文回显，不会静默失败。
 
@@ -126,7 +128,7 @@ scripts/        integration-scenario.mjs：集成场景脚本（真 cordis + 真
 ## 开发
 
 ```bash
-node --test        # 27 个用例：解析 / 路由 / 围栏 / bundle 注册 / 组件渲染 / 真实 cordis 集成
+node --test        # 32 个用例：解析 / 路由 / 围栏 / bundle 注册 / 组件渲染 / 真实 cordis 集成
 node --check lib/index.js && node --check lib/scan.js && node --check lib/client.js
 ```
 
